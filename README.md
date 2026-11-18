@@ -4,7 +4,55 @@ Garmin のデータを可視化して、日々のトレーニングのモチベ�
 
 ## 概要
 
-<!-- このプロジェクトで何ができるか -->
+Garmin Connect に記録されたランニングと筋トレのデータを、「続けたくなる」目標に置き換えて見せるダッシュボードです。
+
+| チャレンジ | 換算のしかた | ゴール |
+|---|---|---|
+| 東海道ランニング | ランの累計距離（km） | 日本橋 → 京都・三条大橋（495.5km、五十三次） |
+| スクワット富士登頂 | 1回 = 1m | 富士山頂（3,776m） |
+| 腕立て換算重量 | 1回 = 体重 × 64% | 軽自動車 → ゾウ → 大型バス → シロナガスクジラ |
+
+富士山の現在地をタップすると、その標高の景色のイラストと Google マップ／ストリートビューへのリンクが出ます。
+
+## 仕組み
+
+```mermaid
+flowchart LR
+    GC["Garmin Connect"]
+    subgraph MAC["自分の Mac"]
+        LD["launchd<br/>毎晩 23:00"] --> RUN["scripts/run.sh"]
+        RUN --> PY["scripts/garmin_fetch.py"]
+        PY --> JSON[("garmin.json<br/>Git には含めない")]
+        RUN --> LOG[("logs/fetch.log")]
+        JSON -- "自動読み込み<br/>（ローカルサーバー）" --> UI["index.html<br/>ダッシュボード"]
+    end
+    GC -- "直近30日のアクティビティ" --> PY
+    JSON -. "ファイル選択で読み込み" .-> PAGES
+    subgraph GH["GitHub Pages"]
+        PAGES["index.html"] -- "初期表示" --> SAMPLE["docs/sample-garmin.json"]
+    end
+```
+
+1. `garmin_fetch.py` が Garmin Connect から直近30日のランとスクワット・腕立ての回数を取り、`garmin.json` に保存します。ログイン情報は `~/.garminconnect` のトークンを使い、パスワードは保存しません。
+2. Mac の launchd が毎晩 23:00 に `run.sh` 経由で取得スクリプトを動かします。
+3. `index.html` が `garmin.json` を読み込んで表示します。`garmin.json` は個人データなので Git には含めません。GitHub Pages ではサンプルデータを表示し、自分のデータは「garmin.json を選択」でブラウザに読み込ませて見ます（ファイルはどこにも送信されません）。
+
+## 成果物の確認
+
+公開版（GitHub Pages）: **https://so0382ri-ai.github.io/garmin-dashboard/**
+
+- 最初はサンプルデータ（`docs/sample-garmin.json`）が表示され、画面に「サンプルデータ表示中」と出ます。
+- 右上の「garmin.json を選択」で手元の `garmin.json` を選ぶと、自分のデータで表示できます。
+- 富士山の図の現在地をタップすると、景色のイラストとリンクが出ます。
+
+GitHub Pages がまだ有効でない場合は、リポジトリの **Settings → Pages** で次のように設定してください（数分で上の URL に公開されます）。
+
+- **Source**: Deploy from a branch
+- **Branch**: `main` / `/ (root)`
+
+> 非公開リポジトリで GitHub Pages を使うには、有料プラン（GitHub Pro など）が必要です。
+
+ローカルで確認する場合は「[ダッシュボード表示](#ダッシュボード表示)」を参照してください。
 
 ## 機能
 
@@ -14,6 +62,8 @@ Garmin のデータを可視化して、日々のトレーニングのモチベ�
   - 東海道ランニング: ランの累計 km で日本橋から京都・三条大橋（495.5km）を目指す
   - スクワット富士登頂: 1回 = 1m として富士山頂（3,776m）を目指す
   - 腕立て換算重量: 1回 = 体重 × 64% として持ち上げた総重量を表示
+  - 富士山の現在地をタップすると、標高に応じた景色と地図・ストリートビューへのリンクを表示
+  - 自分の garmin.json をファイル選択で読み込み（複数可、記録番号で重複を除外）
 
 ## セットアップ
 
@@ -115,7 +165,13 @@ python3 -m http.server 8000
 
 ## 設定
 
-<!-- 認証情報・設定ファイルの置き場所 -->
+| 項目 | 場所・方法 |
+|---|---|
+| Garmin のログイントークン | `~/.garminconnect`（環境変数 `GARMINTOKENS` で変更可） |
+| 取得日数・出力先 | `garmin_fetch.py` の `--days` / `--output` |
+| 自動実行の時刻 | plist の `StartCalendarInterval`（既定 23:00） |
+| 体重（腕立ての換算） | ダッシュボードの入力欄。ブラウザに保存（既定 60kg） |
+| 景色のストリートビュー座標 | `index.html` の `FUJI_SCENES` の `streetView`。座標を入れた地点はストリートビューを直接開き、入れていない地点は地名で Google マップを開く（現在は山頂のみ設定） |
 
 > **注意:** `garmin.json`、`.garminconnect`、`rclone.conf` には認証情報や個人データが含まれるため、`.gitignore` でリポジトリから除外しています。
 
