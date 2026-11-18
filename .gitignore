@@ -7,3 +7,6 @@ rclone.conf
 
 # ログ
 *.log
+
+# Python
+__pycache__/
