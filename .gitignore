@@ -1,0 +1,9 @@
+# Garmin 認証・データ
+garmin.json
+.garminconnect
+
+# rclone 設定（認証情報を含む）
+rclone.conf
+
+# ログ
+*.log
