@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  毎晩 23:00 に scripts/run.sh を実行する LaunchDaemon のひな形。
+
+  YOUR_USERNAME を macOS のユーザー名(`whoami` の結果)に置き換えて使う。
+  リポジトリを ~/garmin-dashboard 以外に置いた場合は、パスも合わせて書き換える。
+  設置手順は README の「自動実行(macOS)」を参照。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.garmin-dashboard</string>
+
+  <!-- root ではなく自分のユーザーとして実行する(~/.garminconnect のトークンを使うため) -->
+  <key>UserName</key>
+  <string>YOUR_USERNAME</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/YOUR_USERNAME/garmin-dashboard/scripts/run.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/YOUR_USERNAME/garmin-dashboard</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/YOUR_USERNAME</string>
+  </dict>
+
+  <!-- 毎日 23:00。スリープ中だった場合は復帰後に1回実行される -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>23</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <!-- run.sh が起動できなかったとき用。通常のログは logs/fetch.log -->
+  <key>StandardOutPath</key>
+  <string>/Users/YOUR_USERNAME/garmin-dashboard/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOUR_USERNAME/garmin-dashboard/launchd.log</string>
+</dict>
+</plist>
