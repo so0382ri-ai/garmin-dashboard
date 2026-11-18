@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garmin チャレンジ</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --border: #e3e2dd;
+  --grid: #ebeae6;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --run: #2a78d6;
+  --run-track: #cde2fb;
+  --squat: #eb6834;
+  --squat-track: #fbdccd;
+  --push: #1baf7a;
+  --push-track: #c9eedf;
+  --sky: #eef4fb;
+  --badge-bg: #fff4d6;
+  --badge-text: #6b4e00;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface-1: #1a1a19;
+    --border: #2e2e2b;
+    --grid: #2a2a27;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --run: #3987e5;
+    --run-track: #1d3655;
+    --squat: #d95926;
+    --squat-track: #4a2617;
+    --push: #199e70;
+    --push-track: #163d2f;
+    --sky: #1f2329;
+    --badge-bg: #3d3110;
+    --badge-text: #f5d98a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211;
+  --surface-1: #1a1a19;
+  --border: #2e2e2b;
+  --grid: #2a2a27;
+  --text-primary: #f0efec;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e86;
+  --run: #3987e5;
+  --run-track: #1d3655;
+  --squat: #d95926;
+  --squat-track: #4a2617;
+  --push: #199e70;
+  --push-track: #163d2f;
+  --sky: #1f2329;
+  --badge-bg: #3d3110;
+  --badge-text: #f5d98a;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding: 32px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 24px; }
+h1 { font-size: 1.6rem; margin: 0; letter-spacing: 0.02em; }
+.meta { color: var(--text-secondary); font-size: 0.875rem; }
+.badge {
+  display: none; font-size: 0.75rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+  background: var(--badge-bg); color: var(--badge-text);
+}
+.badge.show { display: inline-block; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.card {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px;
+  padding: 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.card h2 { font-size: 1rem; margin: 0; font-weight: 600; white-space: nowrap; }
+.card .sub { font-size: 0.8125rem; color: var(--text-muted); margin-left: auto; }
+.hero { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.hero .value { font-size: 2.6rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hero .unit { font-size: 1rem; color: var(--text-secondary); font-weight: 600; }
+.hero .extra { font-size: 0.875rem; color: var(--text-secondary); margin-left: auto; }
+.status { font-size: 0.9375rem; color: var(--text-primary); margin: 0; }
+.status b { font-weight: 700; }
+.next { font-size: 0.8125rem; color: var(--text-secondary); margin: 0; }
+
+.figure { width: 100%; }
+.figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+.figure text { font-family: inherit; }
+
+.meter { height: 8px; border-radius: 999px; overflow: hidden; }
+.meter > span { display: block; height: 100%; border-radius: 999px; }
+
+.daily-title { font-size: 0.75rem; color: var(--text-muted); margin: 4px 0 0; }
+.daily svg { display: block; width: 100%; height: 88px; }
+.daily rect.hit { fill: transparent; cursor: default; }
+
+.weight-row { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--text-secondary); }
+.weight-row input {
+  width: 72px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--text-primary); font: inherit; font-variant-numeric: tabular-nums;
+}
+.compare { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 0.75rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+
+details { font-size: 0.8125rem; color: var(--text-secondary); }
+summary { cursor: pointer; color: var(--text-muted); }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-muted); font-weight: 600; }
+
+.tooltip {
+  position: fixed; pointer-events: none; z-index: 10; display: none;
+  background: var(--text-primary); color: var(--surface-1);
+  font-size: 0.75rem; padding: 6px 10px; border-radius: 8px; white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.error {
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+}
+.error code { background: var(--bg); padding: 1px 6px; border-radius: 6px; }
+footer { margin-top: 24px; font-size: 0.75rem; color: var(--text-muted); }
+footer p { margin: 4px 0; }
+
+@media (max-width: 400px) {
+  .grid { grid-template-columns: 1fr; }
+  .hero .value { font-size: 2.2rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Garmin チャレンジ</h1>
+    <span class="meta" id="meta">読み込み中…</span>
+    <span class="badge" id="sample-badge">サンプルデータ表示中</span>
+  </header>
+
+  <div id="error" class="error" hidden></div>
+
+  <div class="grid" id="cards">
+    <!-- 東海道ランニング -->
+    <section class="card" aria-labelledby="run-title">
+      <div class="card-head">
+        <span class="dot" style="background: var(--run)"></span>
+        <h2 id="run-title">東海道ランニング</h2>
+        <span class="sub">日本橋 → 京都 三条大橋</span>
+      </div>
+      <div class="hero">
+        <span class="value" id="run-total">–</span><span class="unit">km</span>
+        <span class="extra" id="run-pct"></span>
+      </div>
+      <p class="status" id="run-status"></p>
+      <div class="figure" id="run-figure"></div>
+      <p class="next" id="run-next"></p>
+      <p class="daily-title">日ごとの距離（km）</p>
+      <div class="daily" id="run-daily"></div>
+      <details><summary>表で見る</summary><div id="run-table"></div></details>
+    </section>
+
+    <!-- スクワット富士登頂 -->
+    <section class="card" aria-labelledby="squat-title">
+      <div class="card-head">
+        <span class="dot" style="background: var(--squat)"></span>
+        <h2 id="squat-title">スクワット富士登頂</h2>
+        <span class="sub">1回 = 1m</span>
+      </div>
+      <div class="hero">
+        <span class="value" id="squat-total">–</span><span class="unit">m</span>
+        <span class="extra" id="squat-pct"></span>
+      </div>
+      <p class="status" id="squat-status"></p>
+      <div class="figure" id="squat-figure"></div>
+      <p class="next" id="squat-next"></p>
+      <p class="daily-title">日ごとの回数</p>
+      <div class="daily" id="squat-daily"></div>
+      <details><summary>表で見る</summary><div id="squat-table"></div></details>
+    </section>
+
+    <!-- 腕立て換算重量 -->
+    <section class="card" aria-labelledby="push-title">
+      <div class="card-head">
+        <span class="dot" style="background: var(--push)"></span>
+        <h2 id="push-title">腕立て換算重量</h2>
+        <span class="sub" id="push-sub">1回 = 体重 × 64%</span>
+      </div>
+      <div class="hero">
+        <span class="value" id="push-total">–</span><span class="unit" id="push-unit">kg</span>
+        <span class="extra" id="push-reps"></span>
+      </div>
+      <p class="status" id="push-status"></p>
+      <div class="figure">
+        <div class="meter" style="background: var(--push-track)"><span id="push-meter" style="background: var(--push); width: 0"></span></div>
+      </div>
+      <p class="next" id="push-next"></p>
+      <div class="compare" id="push-compare"></div>
+      <label class="weight-row">体重
+        <input type="number" id="body-weight" min="20" max="200" step="0.5" value="60" inputmode="decimal"> kg
+      </label>
+      <p class="daily-title">日ごとの回数</p>
+      <div class="daily" id="push-daily"></div>
+      <details><summary>表で見る</summary><div id="push-table"></div></details>
+    </section>
+  </div>
+
+  <footer>
+    <p>東海道の距離は旧東海道の宿場間距離（日本橋起点）の目安です。全長 495.5km。</p>
+    <p>腕立て伏せで持ち上げる重さは体重の約64%として換算しています。比較対象の重さも目安です。</p>
+    <p>累計は garmin.json に含まれる期間の合計です。</p>
+  </footer>
+</div>
+<div class="tooltip" id="tooltip" role="status"></div>
+
+<script>
+"use strict";
+
+// ---------- 設定 ----------
+const DATA_URL = "garmin.json";
+const SAMPLE_URL = "docs/sample-garmin.json";
+const PUSHUP_RATIO = 0.64;     // 腕立て1回で持ち上げる重さ = 体重 × 0.64
+const DEFAULT_WEIGHT = 60;
+const FUJI = 3776;
+
+// 旧東海道 五十三次(日本橋からの累計km・目安)
+const TOKAIDO = [
+  ["日本橋", 0], ["品川", 7.8], ["川崎", 17.6], ["神奈川", 27.5], ["保土ケ谷", 32.4],
+  ["戸塚", 41.2], ["藤沢", 49.0], ["平塚", 62.7], ["大磯", 65.4], ["小田原", 81.0],
+  ["箱根", 97.6], ["三島", 112.4], ["沼津", 118.2], ["原", 124.0], ["吉原", 135.9],
+  ["蒲原", 147.0], ["由比", 150.9], ["興津", 160.0], ["江尻", 164.1], ["府中", 174.6],
+  ["丸子", 180.2], ["岡部", 188.0], ["藤枝", 194.7], ["島田", 203.4], ["金谷", 207.3],
+  ["日坂", 213.8], ["掛川", 220.9], ["袋井", 230.5], ["見附", 236.4], ["浜松", 252.6],
+  ["舞阪", 263.5], ["新居", 269.4], ["白須賀", 275.9], ["二川", 281.6], ["吉田", 287.7],
+  ["御油", 298.0], ["赤坂", 299.7], ["藤川", 308.5], ["岡崎", 315.1], ["池鯉鮒", 330.0],
+  ["鳴海", 341.0], ["宮", 347.5], ["桑名", 375.0], ["四日市", 387.6], ["石薬師", 398.4],
+  ["庄野", 401.1], ["亀山", 409.0], ["関", 414.9], ["坂下", 421.4], ["土山", 431.1],
+  ["水口", 441.7], ["石部", 455.4], ["草津", 467.2], ["大津", 481.6], ["三条大橋", 495.5],
+];
+const TOKAIDO_TOTAL = TOKAIDO[TOKAIDO.length - 1][1];
+
+// 富士登山の目安になる高さ
+const FUJI_MARKS = [
+  [634, "スカイツリー"], [2305, "五合目"], [3776, "山頂"],
+];
+
+// 腕立て換算重量の比較対象(目安)
+const WEIGHT_COMPARE = [
+  [1000, "軽自動車", "台"],
+  [6000, "アフリカゾウ", "頭"],
+  [12000, "大型バス", "台"],
+  [150000, "シロナガスクジラ", "頭"],
+];
+
+// ---------- ユーティリティ ----------
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 0) => n.toLocaleString("ja-JP", { minimumFractionDigits: d, maximumFractionDigits: d });
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const svgEl = (tag, attrs = {}) => {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+};
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function storageSet(key, v) { try { localStorage.setItem(key, v); } catch { /* 保存できなくても動く */ } }
+
+function dateRange(start, end) {
+  const days = [];
+  const d = new Date(start + "T00:00:00");
+  const last = new Date(end + "T00:00:00");
+  while (d <= last) {
+    days.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+const shortDate = (iso) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+
+// ---------- データ読み込み ----------
+async function loadData() {
+  const forceSample = new URLSearchParams(location.search).has("sample");
+  if (!forceSample) {
+    try {
+      const r = await fetch(DATA_URL, { cache: "no-store" });
+      if (r.ok) return { data: await r.json(), sample: false };
+    } catch { /* 下でサンプルを試す */ }
+  }
+  const r = await fetch(SAMPLE_URL, { cache: "no-store" });
+  if (!r.ok) throw new Error(`${SAMPLE_URL} を読み込めませんでした (${r.status})`);
+  return { data: await r.json(), sample: true };
+}
+
+function aggregate(data) {
+  const days = dateRange(data.range.start, data.range.end);
+  const byDay = Object.fromEntries(days.map((d) => [d, { km: 0, squat: 0, pushup: 0 }]));
+  for (const r of data.runs || []) if (byDay[r.date]) byDay[r.date].km += r.km || 0;
+  for (const s of data.strength || []) {
+    if (!byDay[s.date]) continue;
+    byDay[s.date].squat += s.squat || 0;
+    byDay[s.date].pushup += s.pushup || 0;
+  }
+  const rows = days.map((d) => ({ date: d, ...byDay[d] }));
+  const sum = (k) => rows.reduce((a, r) => a + r[k], 0);
+  return { rows, km: sum("km"), squat: sum("squat"), pushup: sum("pushup") };
+}
+
+// ---------- ツールチップ ----------
+const tip = $("tooltip");
+function showTip(html, x, y) {
+  tip.innerHTML = html;
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = x - w / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  tip.style.left = left + "px";
+  tip.style.top = Math.max(8, y - h - 12) + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+// ---------- 日ごとの棒グラフ ----------
+function dailyBars(container, rows, key, colorVar, unit, digits = 0) {
+  container.innerHTML = "";
+  const W = 300, H = 88, padB = 16, padT = 6;
+  const max = Math.max(1, ...rows.map((r) => r[key]));
+  const n = rows.length;
+  const slot = W / n;
+  const bw = Math.max(2, slot - 2); // 2px のすき間
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", role: "img",
+    "aria-label": `日ごとの${unit}` });
+  const baseY = H - padB;
+  svg.appendChild(svgEl("line", { x1: 0, x2: W, y1: baseY, y2: baseY, stroke: css("--border"), "stroke-width": 1,
+    "vector-effect": "non-scaling-stroke" }));
+
+  rows.forEach((r, i) => {
+    const v = r[key];
+    const x = i * slot + (slot - bw) / 2;
+    if (v > 0) {
+      const h = Math.max(2, (v / max) * (baseY - padT));
+      const rr = Math.min(2, bw / 2, h);
+      // 上の角だけ丸めたバー(下端はベースラインに接する)
+      const d = `M${x},${baseY} V${baseY - h + rr} Q${x},${baseY - h} ${x + rr},${baseY - h} H${x + bw - rr} Q${x + bw},${baseY - h} ${x + bw},${baseY - h + rr} V${baseY} Z`;
+      svg.appendChild(svgEl("path", { d, fill: css(colorVar) }));
+    }
+    const hit = svgEl("rect", { x: i * slot, y: 0, width: slot, height: H, class: "hit" });
+    const label = `${shortDate(r.date)}　<b>${v > 0 ? fmt(v, digits) : "0"}</b> ${unit}`;
+    hit.addEventListener("mouseenter", (e) => showTip(label, e.clientX, e.clientY));
+    hit.addEventListener("mousemove", (e) => showTip(label, e.clientX, e.clientY));
+    hit.addEventListener("mouseleave", hideTip);
+    hit.addEventListener("touchstart", (e) => { const t = e.touches[0]; showTip(label, t.clientX, t.clientY); }, { passive: true });
+    svg.appendChild(hit);
+  });
+
+  // preserveAspectRatio="none" で文字が伸びないよう、軸ラベルは SVG の外に HTML で置く
+  container.appendChild(svg);
+  const axis = document.createElement("div");
+  axis.style.cssText = "display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--text-muted);margin-top:-14px;";
+  axis.innerHTML = `<span>${shortDate(rows[0].date)}</span><span>最大 ${fmt(max, digits)} ${unit}</span><span>${shortDate(rows[n - 1].date)}</span>`;
+  container.appendChild(axis);
+}
+
+function table(container, rows, cols) {
+  const head = cols.map((c) => `<th>${esc(c.label)}</th>`).join("");
+  const body = rows.filter((r) => cols.slice(1).some((c) => r[c.key] > 0))
+    .map((r) => `<tr>${cols.map((c, i) => `<td>${i === 0 ? esc(r.date) : fmt(r[c.key], c.digits || 0)}</td>`).join("")}</tr>`)
+    .join("");
+  container.innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}">記録なし</td></tr>`}</tbody></table>`;
+}
+
+// ---------- 東海道ランニング ----------
+function renderRun(agg) {
+  const total = agg.km;
+  const laps = Math.floor(total / TOKAIDO_TOTAL);
+  const pos = total - laps * TOKAIDO_TOTAL;           // 今の周回での位置
+  let passed = 0;
+  for (let i = 0; i < TOKAIDO.length; i++) if (TOKAIDO[i][1] <= pos) passed = i;
+  const here = TOKAIDO[passed], next = TOKAIDO[Math.min(passed + 1, TOKAIDO.length - 1)];
+
+  $("run-total").textContent = fmt(total, 1);
+  $("run-pct").textContent = `${laps > 0 ? `${laps}往路完走・` : ""}${fmt((pos / TOKAIDO_TOTAL) * 100, 1)}%`;
+  $("run-status").innerHTML = passed === 0 && pos < 0.05
+    ? "日本橋を出発しよう！"
+    : `<b>${esc(here[0])}宿</b>を通過（${Math.min(passed, TOKAIDO.length - 2)}/${TOKAIDO.length - 2} 宿）`;
+  $("run-next").textContent = next === here
+    ? "三条大橋に到着！"
+    : `次は ${next[0]}${next[0] === "三条大橋" ? "（ゴール）" : "宿"}まで あと ${fmt(next[1] - pos, 1)} km`;
+
+  // ルート図
+  const W = 320, H = 64, x0 = 10, x1 = W - 10, y = 30;
+  const sx = (km) => x0 + (km / TOKAIDO_TOTAL) * (x1 - x0);
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": `東海道 ${fmt(pos, 1)}km 地点、${here[0]}を通過` });
+  svg.appendChild(svgEl("line", { x1: x0, x2: x1, y1: y, y2: y, stroke: css("--run-track"), "stroke-width": 6, "stroke-linecap": "round" }));
+  if (pos > 0) svg.appendChild(svgEl("line", { x1: x0, x2: sx(pos), y1: y, y2: y, stroke: css("--run"), "stroke-width": 6, "stroke-linecap": "round" }));
+  TOKAIDO.forEach(([name, km], i) => {
+    const done = km <= pos;
+    const end = i === 0 || i === TOKAIDO.length - 1;
+    const c = svgEl("circle", { cx: sx(km), cy: y, r: end ? 4 : 1.6,
+      fill: done ? css("--surface-1") : css("--text-muted"), "fill-opacity": done ? 1 : 0.5 });
+    if (end) { c.setAttribute("fill", done ? css("--run") : css("--surface-1")); c.setAttribute("stroke", css("--run")); c.setAttribute("stroke-width", 2); c.removeAttribute("fill-opacity"); }
+    const hit = svgEl("circle", { cx: sx(km), cy: y, r: 5, fill: "transparent" });
+    const label = `${esc(name)}　${fmt(km, 1)} km`;
+    hit.addEventListener("mouseenter", (e) => showTip(label, e.clientX, e.clientY));
+    hit.addEventListener("mouseleave", hideTip);
+    svg.append(c, hit);
+  });
+  // 現在地マーカー
+  const mx = sx(pos);
+  svg.appendChild(svgEl("circle", { cx: mx, cy: y, r: 7, fill: css("--run"), stroke: css("--surface-1"), "stroke-width": 2 }));
+  const lbl = svgEl("text", { x: Math.max(30, Math.min(mx, W - 30)), y: y - 14, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: css("--text-primary") });
+  lbl.textContent = here[0];
+  svg.appendChild(lbl);
+  const s = svgEl("text", { x: x0 - 4, y: y + 22, "font-size": 10, fill: css("--text-secondary") }); s.textContent = "日本橋";
+  const g = svgEl("text", { x: x1 + 4, y: y + 22, "font-size": 10, fill: css("--text-secondary"), "text-anchor": "end" }); g.textContent = "三条大橋";
+  svg.append(s, g);
+  $("run-figure").replaceChildren(svg);
+
+  dailyBars($("run-daily"), agg.rows, "km", "--run", "km", 1);
+  table($("run-table"), agg.rows, [{ label: "日付" }, { label: "距離(km)", key: "km", digits: 2 }]);
+}
+
+// ---------- スクワット富士登頂 ----------
+function renderSquat(agg) {
+  const total = agg.squat;                 // 1回 = 1m
+  const summits = Math.floor(total / FUJI);
+  const alt = total - summits * FUJI;
+  $("squat-total").textContent = fmt(total);
+  $("squat-pct").textContent = `${summits > 0 ? `${summits}回登頂・` : ""}${fmt((alt / FUJI) * 100, 1)}%`;
+  const passedMark = [...FUJI_MARKS].reverse().find(([m]) => m <= alt);
+  const nextMark = FUJI_MARKS.find(([m]) => m > alt);
+  $("squat-status").innerHTML = summits > 0 && alt === 0
+    ? `<b>${summits}回目の登頂</b>おめでとう！`
+    : `標高 <b>${fmt(alt)}m</b> 地点${passedMark ? `（${esc(passedMark[1])}を突破）` : ""}`;
+  $("squat-next").textContent = nextMark
+    ? `${nextMark[1]}（${fmt(nextMark[0])}m）まで あと ${fmt(nextMark[0] - alt)} 回`
+    : "";
+
+  // 山のシルエット
+  const W = 320, H = 160, base = H - 8, top = 14, cx = 125, mR = 250, lx = 258;
+  const yAlt = (m) => base - (m / FUJI) * (base - top);
+  const mountain = `M10,${base} C70,${base - 10} 110,${top + 40} ${cx - 16},${top} L${cx + 16},${top} C${cx + 40},${top + 40} ${cx + 80},${base - 10} ${mR},${base} Z`;
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `標高 ${fmt(alt)}m / ${FUJI}m` });
+  const id = "fuji-clip";
+  const defs = svgEl("defs");
+  const clip = svgEl("clipPath", { id });
+  clip.appendChild(svgEl("path", { d: mountain }));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+  svg.appendChild(svgEl("rect", { x: 0, y: 0, width: mR + 4, height: base, fill: css("--sky"), rx: 8 }));
+  svg.appendChild(svgEl("path", { d: mountain, fill: css("--squat-track") }));
+  // 登った分を下から塗る
+  svg.appendChild(svgEl("rect", { x: 0, y: yAlt(alt), width: mR, height: base - yAlt(alt), fill: css("--squat"), "clip-path": `url(#${id})` }));
+  svg.appendChild(svgEl("line", { x1: 0, x2: W, y1: base, y2: base, stroke: css("--border") }));
+  // 目安の高さ
+  for (const [m, name] of FUJI_MARKS) {
+    const yy = yAlt(m);
+    svg.appendChild(svgEl("line", { x1: mR - 6, x2: lx - 2, y1: yy, y2: yy, stroke: css("--text-muted"), "stroke-width": 1 }));
+    const t = svgEl("text", { x: lx, y: yy + 4, "font-size": 11,
+      fill: css(m <= alt ? "--text-primary" : "--text-muted") });
+    t.textContent = name;
+    svg.appendChild(t);
+  }
+  // 現在の高さ
+  const ay = yAlt(alt);
+  svg.appendChild(svgEl("line", { x1: 4, x2: mR, y1: ay, y2: ay, stroke: css("--text-primary"), "stroke-width": 1, "stroke-dasharray": "3 3" }));
+  const at = svgEl("text", { x: 12, y: ay - 5, "font-size": 11, "font-weight": 700, fill: css("--text-primary") });
+  at.textContent = `${fmt(alt)}m`;
+  svg.appendChild(at);
+  $("squat-figure").replaceChildren(svg);
+
+  dailyBars($("squat-daily"), agg.rows, "squat", "--squat", "回");
+  table($("squat-table"), agg.rows, [{ label: "日付" }, { label: "回数", key: "squat" }]);
+}
+
+// ---------- 腕立て換算重量 ----------
+function renderPush(agg) {
+  let weight = Number(storageGet("bodyWeight")) || DEFAULT_WEIGHT;
+  const input = $("body-weight");
+  input.value = weight;
+
+  const update = () => {
+    const kg = agg.pushup * weight * PUSHUP_RATIO;
+    const asTon = kg >= 10000;
+    $("push-total").textContent = asTon ? fmt(kg / 1000, 1) : fmt(kg);
+    $("push-unit").textContent = asTon ? "t" : "kg";
+    $("push-reps").textContent = `${fmt(agg.pushup)} 回`;
+    $("push-sub").textContent = `1回 = ${fmt(weight * PUSHUP_RATIO, 1)}kg（体重×64%）`;
+
+    const reached = [...WEIGHT_COMPARE].reverse().find(([w]) => w <= kg);
+    const next = WEIGHT_COMPARE.find(([w]) => w > kg);
+    $("push-status").innerHTML = reached
+      ? `<b>${esc(reached[1])} ${fmt(kg / reached[0], 1)}${reached[2]}分</b>を持ち上げた！`
+      : `${esc(WEIGHT_COMPARE[0][1])}まで ${fmt((kg / WEIGHT_COMPARE[0][0]) * 100)}%`;
+    if (next) {
+      const prev = reached ? reached[0] : 0;
+      const pct = Math.min(100, ((kg - prev) / (next[0] - prev)) * 100);
+      $("push-meter").style.width = pct + "%";
+      const remainReps = Math.ceil((next[0] - kg) / (weight * PUSHUP_RATIO));
+      $("push-next").textContent = `次は ${next[1]}（約${fmt(next[0] / 1000)}t）まで あと ${fmt(remainReps)} 回`;
+    } else {
+      $("push-meter").style.width = "100%";
+      $("push-next").textContent = "シロナガスクジラ超え！";
+    }
+    $("push-compare").innerHTML = WEIGHT_COMPARE.map(([w, name, u]) =>
+      `<span class="chip">${esc(name)} ${fmt(kg / w, kg / w < 1 ? 2 : 1)}${u}</span>`).join("");
+  };
+  input.addEventListener("input", () => {
+    const v = Number(input.value);
+    if (v >= 20 && v <= 200) { weight = v; storageSet("bodyWeight", String(v)); update(); }
+  });
+  update();
+
+  dailyBars($("push-daily"), agg.rows, "pushup", "--push", "回");
+  table($("push-table"), agg.rows, [{ label: "日付" }, { label: "回数", key: "pushup" }]);
+}
+
+// ---------- 起動 ----------
+let current = null;
+function renderAll() {
+  if (!current) return;
+  const agg = aggregate(current.data);
+  renderRun(agg);
+  renderSquat(agg);
+  renderPush(agg);
+}
+
+loadData().then((res) => {
+  current = res;
+  const d = res.data;
+  const updated = d.updatedAt ? d.updatedAt.replace("T", " ").slice(0, 16) : "不明";
+  $("meta").textContent = `${d.range.start.replaceAll("-", "/")} 〜 ${d.range.end.replaceAll("-", "/")}・更新 ${updated}`;
+  $("sample-badge").classList.toggle("show", res.sample);
+  renderAll();
+}).catch((err) => {
+  $("cards").hidden = true;
+  $("meta").textContent = "";
+  const el = $("error");
+  el.hidden = false;
+  el.innerHTML = `<p><b>データを読み込めませんでした。</b></p>
+    <p>${esc(err.message)}</p>
+    <p>ブラウザで直接ファイルを開くと読み込めないことがあります。リポジトリ直下で <code>python3 -m http.server</code> を実行し、
+    <code>http://localhost:8000/</code> を開いてください。</p>`;
+});
+
+// テーマ(ライト/ダーク)が変わったら SVG の色を塗り直す
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+document.addEventListener("scroll", hideTip, { passive: true });
+</script>
+</body>
+</html>
