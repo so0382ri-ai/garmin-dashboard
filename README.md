@@ -45,10 +45,16 @@ flowchart LR
 - 右上の「garmin.json を選択」で手元の `garmin.json` を選ぶと、自分のデータで表示できます。
 - 富士山の図の現在地をタップすると、景色のイラストとリンクが出ます。
 
-GitHub Pages がまだ有効でない場合は、リポジトリの **Settings → Pages** で次のように設定してください（数分で上の URL に公開されます）。
+### GitHub Pages での公開のしかた
 
-- **Source**: Deploy from a branch
-- **Branch**: `main` / `/ (root)`
+公開は GitHub Actions（`.github/workflows/pages.yml`）で行います。最初に一度だけ、次の設定をしてください。
+
+1. リポジトリの **Settings → Pages** を開く。
+2. **Build and deployment → Source** を **GitHub Actions** にする。
+3. **Actions** タブで「Deploy to GitHub Pages」を選び、**Run workflow** で1回実行する（以降は `index.html` か `docs/` を変更して `main` に push するたびに自動で公開されます）。
+4. 実行が終わると、上の URL で見られます。
+
+公開されるのは `index.html` と `docs/sample-garmin.json` だけです。取得スクリプトなどは公開されず、`garmin.json` や認証情報のファイルが紛れ込んでいた場合は公開を止めます。
 
 > 非公開リポジトリで GitHub Pages を使うには、有料プラン（GitHub Pro など）が必要です。
 
@@ -184,6 +190,7 @@ scripts/garmin_fetch.py  Garmin からデータを取得して garmin.json を�
 scripts/run.sh           取得スクリプトを実行してログを残す（自動実行用）
 scripts/com.example.garmin-dashboard.plist  毎晩 23:00 に run.sh を実行する LaunchDaemon のひな形
 requirements.txt         Python 依存パッケージ
+.github/workflows/pages.yml  GitHub Pages への公開（main への push で実行）
 ```
 
 ## ライセンス

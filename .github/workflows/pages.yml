@@ -1,0 +1,56 @@
+# main に push すると、ダッシュボードを GitHub Pages に公開する。
+# 事前に Settings → Pages → Build and deployment → Source を「GitHub Actions」にしておくこと。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - docs/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:   # Actions タブから手動でも実行できる
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 公開が重なったときは、実行中のものを止めずに順番に処理する
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # 公開するのはダッシュボードとサンプルデータだけ(スクリプト類は含めない)
+      - name: Build site
+        run: |
+          mkdir -p _site/docs
+          cp index.html _site/
+          cp docs/sample-garmin.json _site/docs/
+          touch _site/.nojekyll
+
+      # 個人データ(garmin.json)や認証情報が紛れ込んでいたら公開を止める
+      - name: Check no personal data is published
+        run: |
+          found=$(find _site \( -name 'garmin.json' -o -name '.garminconnect' -o -name 'rclone.conf' -o -name '*.log' \) -print)
+          if [ -n "$found" ]; then
+            echo "::error::公開してはいけないファイルが含まれています: $found"
+            exit 1
+          fi
+          find _site -type f | sort
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
