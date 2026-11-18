@@ -10,3 +10,6 @@ rclone.conf
 
 # Python
 __pycache__/
+
+# git bundle（バックアップ用）
+*.bundle
