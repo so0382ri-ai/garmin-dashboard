@@ -66,6 +66,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   background: var(--bg);
@@ -83,6 +84,17 @@ h1 { font-size: 1.6rem; margin: 0; letter-spacing: 0.02em; }
   background: var(--badge-bg); color: var(--badge-text);
 }
 .badge.show { display: inline-block; }
+.loader { display: flex; gap: 8px; margin-left: auto; align-self: center; }
+.btn {
+  font: inherit; font-size: 0.8125rem; font-weight: 600; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--run); background: var(--run); color: #fff; white-space: nowrap;
+}
+.btn:focus-within, .btn:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
+.btn-quiet { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+.notice {
+  margin: -12px 0 16px; font-size: 0.8125rem; color: var(--text-secondary);
+}
+.notice.is-error { color: var(--text-primary); font-weight: 600; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .card {
@@ -155,7 +167,15 @@ footer p { margin: 4px 0; }
     <h1>Garmin チャレンジ</h1>
     <span class="meta" id="meta">読み込み中…</span>
     <span class="badge" id="sample-badge">サンプルデータ表示中</span>
+    <div class="loader">
+      <label class="btn">
+        garmin.json を選択
+        <input type="file" id="file-input" accept=".json,application/json" multiple hidden>
+      </label>
+      <button type="button" class="btn btn-quiet" id="reset-btn" hidden>選択を解除</button>
+    </div>
   </header>
+  <p class="notice" id="notice" role="status" hidden></p>
 
   <div id="error" class="error" hidden></div>
 
@@ -227,7 +247,7 @@ footer p { margin: 4px 0; }
   <footer>
     <p>東海道の距離は旧東海道の宿場間距離（日本橋起点）の目安です。全長 495.5km。</p>
     <p>腕立て伏せで持ち上げる重さは体重の約64%として換算しています。比較対象の重さも目安です。</p>
-    <p>累計は garmin.json に含まれる期間の合計です。</p>
+    <p>累計は読み込んだ garmin.json に含まれる期間の合計です。同じ記録番号の記録は1件として数えます。</p>
   </footer>
 </div>
 <div class="tooltip" id="tooltip" role="status"></div>
@@ -309,6 +329,53 @@ async function loadData() {
   const r = await fetch(SAMPLE_URL, { cache: "no-store" });
   if (!r.ok) throw new Error(`${SAMPLE_URL} を読み込めませんでした (${r.status})`);
   return { data: await r.json(), sample: true };
+}
+
+// 記録の重複判定キー。記録番号(id)があればそれを使い、なければ中身で判定する。
+const runKey = (r) => r.id != null && r.id !== "" ? `id:${r.id}` : `run:${r.date}|${r.km}|${r.name || ""}`;
+const strengthKey = (s) => s.id != null && s.id !== "" ? `id:${s.id}` : `str:${s.date}|${s.squat}|${s.pushup}`;
+
+function validate(data, label) {
+  const ok = data && typeof data === "object" && data.range && /^\d{4}-\d{2}-\d{2}$/.test(data.range.start || "")
+    && /^\d{4}-\d{2}-\d{2}$/.test(data.range.end || "") && Array.isArray(data.runs) && Array.isArray(data.strength);
+  if (!ok) throw new Error(`${label} は garmin.json の形式ではありません（range / runs / strength が必要です）`);
+}
+
+/**
+ * 複数の garmin.json をまとめ、記録番号(id)で重複を除く。
+ * 同じ記録が複数あるときは、更新日時(updatedAt)が新しいファイルの内容を優先する。
+ */
+function mergeData(list) {
+  const sorted = [...list].sort((a, b) => String(a.updatedAt || "").localeCompare(String(b.updatedAt || "")));
+  const runs = new Map(), strength = new Map();
+  let total = 0, start = null, end = null, updatedAt = "";
+  for (const d of sorted) {
+    for (const r of d.runs) { runs.set(runKey(r), r); total++; }
+    for (const s of d.strength) { strength.set(strengthKey(s), s); total++; }
+    if (!start || d.range.start < start) start = d.range.start;
+    if (!end || d.range.end > end) end = d.range.end;
+    if (String(d.updatedAt || "") > updatedAt) updatedAt = String(d.updatedAt || "");
+  }
+  const byDate = (a, b) => a.date.localeCompare(b.date);
+  const data = {
+    updatedAt: updatedAt || null,
+    range: { start, end },
+    runs: [...runs.values()].sort(byDate),
+    strength: [...strength.values()].sort(byDate),
+  };
+  return { data, duplicates: total - data.runs.length - data.strength.length };
+}
+
+async function readFiles(files) {
+  const list = [];
+  for (const f of files) {
+    let data;
+    try { data = JSON.parse(await f.text()); }
+    catch { throw new Error(`${f.name} を JSON として読めませんでした`); }
+    validate(data, f.name);
+    list.push(data);
+  }
+  return list;
 }
 
 function aggregate(data) {
@@ -524,10 +591,11 @@ function renderPush(agg) {
     $("push-compare").innerHTML = WEIGHT_COMPARE.map(([w, name, u]) =>
       `<span class="chip">${esc(name)} ${fmt(kg / w, kg / w < 1 ? 2 : 1)}${u}</span>`).join("");
   };
-  input.addEventListener("input", () => {
+  // 再描画のたびに登録が重ならないよう、addEventListener ではなく代入で差し替える
+  input.oninput = () => {
     const v = Number(input.value);
     if (v >= 20 && v <= 200) { weight = v; storageSet("bodyWeight", String(v)); update(); }
-  });
+  };
   update();
 
   dailyBars($("push-daily"), agg.rows, "pushup", "--push", "回");
@@ -544,21 +612,64 @@ function renderAll() {
   renderPush(agg);
 }
 
-loadData().then((res) => {
+let autoLoaded = null;   // 起動時に自動で読み込んだデータ(選択を解除したら戻す)
+
+function notice(msg, isError = false) {
+  const el = $("notice");
+  el.hidden = !msg;
+  el.textContent = msg || "";
+  el.classList.toggle("is-error", isError);
+}
+
+function show(res) {
   current = res;
   const d = res.data;
-  const updated = d.updatedAt ? d.updatedAt.replace("T", " ").slice(0, 16) : "不明";
+  const updated = d.updatedAt ? String(d.updatedAt).replace("T", " ").slice(0, 16) : "不明";
   $("meta").textContent = `${d.range.start.replaceAll("-", "/")} 〜 ${d.range.end.replaceAll("-", "/")}・更新 ${updated}`;
-  $("sample-badge").classList.toggle("show", res.sample);
+  const badge = $("sample-badge");
+  badge.textContent = res.source === "sample" ? "サンプルデータ表示中" : "選択したファイルを表示中";
+  badge.classList.toggle("show", res.source !== "auto");
+  $("reset-btn").hidden = res.source !== "file" || !autoLoaded;
+  $("error").hidden = true;
+  $("cards").hidden = false;
   renderAll();
+}
+
+$("file-input").addEventListener("change", async (e) => {
+  const files = [...e.target.files];
+  e.target.value = "";   // 同じファイルをもう一度選んでも反応するように
+  if (!files.length) return;
+  try {
+    const { data, duplicates } = mergeData(await readFiles(files));
+    show({ data, source: "file" });
+    const names = files.length === 1 ? `「${files[0].name}」` : `${files.length} ファイル`;
+    notice(`${names}を読み込みました：ラン ${data.runs.length} 件・筋トレ ${data.strength.length} 件`
+      + (duplicates > 0 ? `（重複 ${duplicates} 件を除外）` : ""));
+  } catch (err) {
+    notice(err.message, true);
+  }
+});
+
+$("reset-btn").addEventListener("click", () => {
+  if (!autoLoaded) return;
+  show(autoLoaded);
+  notice("");
+});
+
+loadData().then((res) => {
+  const { data, duplicates } = mergeData([res.data]);
+  autoLoaded = { data, source: res.sample ? "sample" : "auto" };
+  show(autoLoaded);
+  if (duplicates > 0) notice(`重複 ${duplicates} 件を除外しました`);
 }).catch((err) => {
   $("cards").hidden = true;
   $("meta").textContent = "";
   const el = $("error");
   el.hidden = false;
-  el.innerHTML = `<p><b>データを読み込めませんでした。</b></p>
+  el.innerHTML = `<p><b>データを自動で読み込めませんでした。</b></p>
     <p>${esc(err.message)}</p>
-    <p>ブラウザで直接ファイルを開くと読み込めないことがあります。リポジトリ直下で <code>python3 -m http.server</code> を実行し、
+    <p>右上の「garmin.json を選択」から自分のファイルを選ぶと表示できます。</p>
+    <p>自動で読み込ませたい場合は、リポジトリ直下で <code>python3 -m http.server</code> を実行し、
     <code>http://localhost:8000/</code> を開いてください。</p>`;
 });
 
